@@ -1,61 +1,67 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sqlpad-charts.fullname" . }}
+  name: sqlpad
   labels:
-    {{- include "sqlpad-charts.labels" . | nindent 4 }}
+    app: sqlpad
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  replicas: 1
   selector:
     matchLabels:
-      {{- include "sqlpad-charts.selectorLabels" . | nindent 6 }}
+      app: sqlpad
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       labels:
-        {{- include "sqlpad-charts.selectorLabels" . | nindent 8 }}
+        app: sqlpad
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "sqlpad-charts.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+        - name: postgres-initdb
+          configMap:
+            name: postgres-initdb-config             
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: 80
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      - name: postgres
+        image: postgres
+        env:
+          - name: POSTGRES_USER
+            value: "sqlpad"
+          - name: POSTGRES_PASSWORD
+            value: "sqlpad"
+        volumeMounts:
+          - name: postgres-initdb
+            mountPath: /docker-entrypoint-initdb.d
+      - name: sqlpad
+        image: sqlpad/sqlpad:5
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            memory: 512Mi
+            cpu: 1
+          requests:
+            memory: 256Mi        
+            cpu: "0.5"
+        env:
+          - name: SQLPAD_ADMIN
+            value: "admin@sqlpad.com"
+          - name: SQLPAD_ADMIN_PASSWORD
+            value: "admin"
+          - name: SQLPAD_APP_LOG_LEVEL
+            value: 'debug'
+          - name: SQLPAD_WEB_LOG_LEVEL
+            value: 'warn'
+          - name: SQLPAD_CONNECTIONS__pgdemo__name
+            value: 'Postgres demo'
+          - name: SQLPAD_CONNECTIONS__pgdemo__driver
+            value: 'postgres'
+          - name: SQLPAD_CONNECTIONS__pgdemo__host
+            value: 'localhost'
+          - name: SQLPAD_CONNECTIONS__pgdemo__database
+            value: 'sqlpad'
+          - name: SQLPAD_CONNECTIONS__pgdemo__username
+            value: 'sqlpad'
+          - name: SQLPAD_CONNECTIONS__pgdemo__password
+            value: 'sqlpad'
+          - name: SQLPAD_CONNECTIONS__pgdemo__multiStatementTransactionEnabled
+            value: 'true'    
+          - name: SQLPAD_CONNECTIONS__pgdemo__idleTimeoutSeconds
+            value: '86400'           
