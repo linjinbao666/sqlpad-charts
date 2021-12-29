@@ -1,45 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sqlpad
+  name: {{ .Chart.Name }}-deploy
   labels:
-    app: sqlpad
+    app: {{ .Chart.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: sqlpad
+      app: {{ .Chart.Name }}
   template:
     metadata:
       labels:
-        app: sqlpad
+        app: {{ .Chart.Name }}
     spec:
       volumes:
-        - name: postgres-initdb
+        - name: {{ .Values.configmap.name }}
           configMap:
-            name: postgres-initdb-config             
+            name: {{ .Values.configmap.name }}
       containers:
-      - name: postgres
-        image: postgres
-        env:
-          - name: POSTGRES_USER
-            value: "sqlpad"
-          - name: POSTGRES_PASSWORD
-            value: "sqlpad"
-        volumeMounts:
-          - name: postgres-initdb
-            mountPath: /docker-entrypoint-initdb.d
       - name: sqlpad
-        image: sqlpad/sqlpad:5
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         ports:
-        - containerPort: 3000
+        - containerPort: {{ .Values.ports.containerPort }}
         resources:
           limits:
-            memory: 512Mi
-            cpu: 1
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
           requests:
-            memory: 256Mi        
-            cpu: "0.5"
+            memory: {{ .Values.resources.requests.memory }}
+            cpu: {{ .Values.resources.requests.cpu }}
         env:
           - name: SQLPAD_ADMIN
             value: "admin@sqlpad.com"
@@ -54,9 +44,9 @@ spec:
           - name: SQLPAD_CONNECTIONS__pgdemo__driver
             value: 'postgres'
           - name: SQLPAD_CONNECTIONS__pgdemo__host
-            value: 'localhost'
+            value: 'sqlpad-postgresql'
           - name: SQLPAD_CONNECTIONS__pgdemo__database
-            value: 'sqlpad'
+            value: 'postgres'
           - name: SQLPAD_CONNECTIONS__pgdemo__username
             value: 'sqlpad'
           - name: SQLPAD_CONNECTIONS__pgdemo__password
